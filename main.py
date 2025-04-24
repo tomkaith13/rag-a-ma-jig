@@ -1,5 +1,7 @@
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.core import SimpleDirectoryReader
+
 
 
 
@@ -18,8 +20,10 @@ from dotenv import load_dotenv
 load_dotenv()
 PROJECT_ID = os.getenv("PROJECT_ID")
 LOCATION = os.getenv("LOCATION")
-
+print(f"PROJECT_ID: {PROJECT_ID}")
+print(f"LOCATION: {LOCATION}")
 vertexai.init(project=PROJECT_ID,location=LOCATION)
+aiplatform.init(project=PROJECT_ID, location=LOCATION)  
 
 
 llm = Vertex(model="gemini-2.0-flash-lite", temperature=0)
@@ -50,6 +54,13 @@ def main():
     embeddings = generate_embedding("Google Gemini Embeddings.")
     print(embeddings[:5])
     print(f"Dimension of embeddings: {len(embeddings)}")
+
+    docs = SimpleDirectoryReader("./data-files").load_data()
+    print(f"Number of documents loaded: {len(docs)}")
+    for doc in docs:
+        print(f"Document: {doc}")
+        print(f"Text: {doc.text}")
+        print(f"Metadata: {doc.metadata}")
 
 if __name__ == "__main__":
     main()
