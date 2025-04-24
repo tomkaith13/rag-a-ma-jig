@@ -28,8 +28,8 @@ embed_model = GoogleGenAIEmbedding(
         model_name="text-embedding-005",
         embed_batch_size=100,
         vertexai_config={
-            "project": os.getenv("PROJECT_ID"),
-            "location": os.getenv("LOCATION"),
+            "project": PROJECT_ID,
+            "location": LOCATION,
         })
 # Example usage of the embedding model
 def generate_embedding(text):
