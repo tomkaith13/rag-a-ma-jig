@@ -12,5 +12,6 @@ dependencies = [
     "llama-index-llms-google-genai>=0.1.7",
     "llama-index-llms-vertex>=0.4.6",
     "llama-index-vector-stores-docarray>=0.3.0",
+    "nest-asyncio>=1.6.0",
     "python-dotenv>=1.1.0",
 ]

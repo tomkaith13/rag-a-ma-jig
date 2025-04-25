@@ -17,6 +17,7 @@ from google.cloud import aiplatform
 import os
 from dotenv import load_dotenv
 from llama_index.core import Settings
+import nest_asyncio
 import gradio as gr
 
 
@@ -59,7 +60,7 @@ def generate_embedding(text):
     """Generate embedding for the given text using Vertex AI."""
     return embed_model.get_text_embedding(text)
 
-def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
+def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator, correctness_evaluator):
     """Run a query using the provided query executor."""
     def curried_query(query):
         response = query_engine.query(query)
@@ -68,13 +69,18 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
         # resp += f"Faithfulness Evaluation Result Score: {eval_result.score}\n"
         # resp += f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n"
         out = f"Response: {response.response}\n"
-        out = f"faithfulness Evaluation Result Score: {eval_result.score}\n faithfulness Evaluation Result Passing: {eval_result.passing}\n"
+        out += f"faithfulness Evaluation Result Score: {eval_result.score}\nfaithfulness Evaluation Result Passing: {eval_result.passing}\n\n"
 
-        # eval_result = relevancy_evaluator.evaluate_response(
-        #     response=response, query=query
-        # )
-        # out += f"Relevance Evaluation Result: {eval_result.passing}\n"
-        # out += f"Relevance Evaluation Response: {eval_result.response}\n"
+        eval_result = relevancy_evaluator.evaluate_response(
+            response=response, query=query
+        )
+        out += f"Relevance Evaluation Result: {eval_result.passing}\n"
+        out += f"Relevance Evaluation Response: {eval_result.response}\n\n"
+
+        correctnes_result = correctness_evaluator.evaluate_response(response=response, query=query)
+        out += f"Correctness Evaluation Passing: {correctnes_result.passing}\n"
+        out += f"Correctness Evaluation Result Score: {correctnes_result.score}\n"
+        out += f"Correctness Evaluation Result Feedback: {correctnes_result.feedback}\n\n"
         out = out + "TADA!!\n"
 
         return out
@@ -165,8 +171,11 @@ def main():
             print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
             print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
     
+    nest_asyncio.apply()
+
     demo = gr.Interface(
-        fn=run_query(query_engine, faithfulness_evaluator, relevancy_evaluator=relevance_evaluator, correctness_evaluator=correctnes_evaluator),
+        fn=run_query(query_engine, faithfulness_evaluator=faithfulness_evaluator,
+                     relevancy_evaluator=relevance_evaluator, correctness_evaluator=correctnes_evaluator),
         inputs=[gr.Textbox(label="Enter Question")],
         outputs=gr.Textbox(label="Response"),
         title="Get Answer from RAG",

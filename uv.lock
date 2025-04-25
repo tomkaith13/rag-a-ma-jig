@@ -1410,6 +1410,7 @@ dependencies = [
     { name = "llama-index-llms-google-genai" },
     { name = "llama-index-llms-vertex" },
     { name = "llama-index-vector-stores-docarray" },
+    { name = "nest-asyncio" },
     { name = "python-dotenv" },
 ]
 
@@ -1422,6 +1423,7 @@ requires-dist = [
     { name = "llama-index-llms-google-genai", specifier = ">=0.1.7" },
     { name = "llama-index-llms-vertex", specifier = ">=0.4.6" },
     { name = "llama-index-vector-stores-docarray", specifier = ">=0.3.0" },
+    { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
 ]
 
