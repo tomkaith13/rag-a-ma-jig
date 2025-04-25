@@ -180,6 +180,7 @@ def main():
             print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
             print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
     
+    # we need to apply nest_asyncio to avoid the error "RuntimeError: This event loop is already running"
     nest_asyncio.apply()
 
     demo = gr.Interface(
