@@ -62,26 +62,34 @@ def generate_embedding(text):
 
 def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator, correctness_evaluator):
     """Run a query using the provided query executor."""
-    def curried_query(query):
-        response = query_engine.query(query)
+    async def curried_query(query):
+        response = await query_engine.aquery(query)
 
-        eval_result = faithfulness_evaluator.evaluate_response(response=response,query=query)
+        eval_result = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
         # resp += f"Faithfulness Evaluation Result Score: {eval_result.score}\n"
         # resp += f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n"
         out = f"Response: {response.response}\n"
+        out += "-" * 50 + "\n"
+        out += f'Faithfulness: Evaluates if the answer is faithful to the retrieved contexts (in other words, whether if there is a hallucination).\n'
         out += f"faithfulness Evaluation Result Score: {eval_result.score}\nfaithfulness Evaluation Result Passing: {eval_result.passing}\n\n"
 
-        eval_result = relevancy_evaluator.evaluate_response(
+        eval_result = await relevancy_evaluator.aevaluate_response(
             response=response, query=query
         )
+        out += "-" * 50 + "\n"
+        out += f'Relevance: Does the generated response directly address the users query?\n'
         out += f"Relevance Evaluation Result: {eval_result.passing}\n"
         out += f"Relevance Evaluation Response: {eval_result.response}\n\n"
 
-        correctnes_result = correctness_evaluator.evaluate_response(response=response, query=query)
+        correctnes_result = await correctness_evaluator.aevaluate_response(response=response, query=query)
+        out += "-" * 50 + "\n"
+        out += f'Correctness: takes a query, the source documents (the context provided to the LLM), and the generated response as input. It then assesses whether the information presented in the response is accurate and supported by the source documents. \n'
         out += f"Correctness Evaluation Passing: {correctnes_result.passing}\n"
         out += f"Correctness Evaluation Result Score: {correctnes_result.score}\n"
         out += f"Correctness Evaluation Result Feedback: {correctnes_result.feedback}\n\n"
-        out = out + "TADA!!\n"
+
+        out += "-" * 50 + "\n"
+        out = out + "FIN!!\n"
 
         return out
     return curried_query
@@ -128,6 +136,7 @@ def main():
     faithfulness_evaluator = FaithfulnessEvaluator(llm=eval_llm)
     relevance_evaluator = RelevancyEvaluator(llm=eval_llm)
     correctnes_evaluator = CorrectnessEvaluator(llm=eval_llm)
+
     if run_test_queries:
         for query in queries:
             q = query["question"]
