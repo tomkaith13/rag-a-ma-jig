@@ -4,6 +4,10 @@
 - Add creds to `.env`
 - Run `uv run main.py`
 
+## Metrics Measured:
+- [Faithfulness](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/) - The Faithfulness metric measures how factually consistent a response is with the retrieved context. It ranges from 0 to 1, with higher scores indicating better consistency.
+- [Answer Relevancy](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/answer_relevance/) - measures how relevant a response is to the user input. Higher scores indicate better alignment with the user input, while lower scores are given if the response is incomplete or includes redundant information.
+
 ## Eval Results
 ```bash
 Query: Give me the list of applications that I need to setup before my shift.
