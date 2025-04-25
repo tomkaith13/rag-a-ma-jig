@@ -30,7 +30,9 @@ vertexai.init(project=PROJECT_ID,location=LOCATION)
 aiplatform.init(project=PROJECT_ID, location=LOCATION)  
 
 
-llm = Vertex(model="gemini-2.0-flash-lite", temperature=0.79)
+llm = Vertex(model="gemini-2.0-flash-lite",
+             temperature=0.79,
+             system_prompt="Be concise and accurate. Answer the question as best as you can. If you don't know the answer, try to guide the user to the right answer. If not confident,  say 'This information is not available in the document'.")
 eval_llm = Vertex(model="gemini-2.0-flash-lite", temperature=0)
 
 embed_model = GoogleGenAIEmbedding(
@@ -99,7 +101,8 @@ def main():
         resp = query_engine.query(q)
         print(f"Response: {resp}")
         contexts = [node.node.get_content() for node in resp.source_nodes]
-        # print(f"Contexts: {contexts}")
+        
+        # Faithfulness ranges from 0 to 1, with higher scores indicating better consistency. 
         eval_result = faithfulness_evaluator.evaluate(response=resp.response,contexts=contexts)
         print(f"Faithfulness Evaluation Result Score: {eval_result.score}")
 
@@ -107,17 +110,18 @@ def main():
         print(f"Relevance Evaluation Result: {relevance_result.passing}")
         print(f"Relevance Evaluation Response: {relevance_result.response}")
 
+
+        # The LlamaIndex CorrectnessEvaluator outputs a score between 1 and 5, where 1 is the worst and 5 is the best. The evaluator assesses the relevance and correctness of a generated answer against a reference answer. 
+        # Here's a more detailed breakdown of the scoring range: 
+        # 1: The generated answer is not relevant to the user query.
+        # 2-3: The generated answer is relevant but contains mistakes.
+        # 4-5: The generated answer is relevant and fully correct.
+
         correctnes_result = correctnes_evaluator.evaluate(response=resp.response,query=q,contexts=contexts,answer=a)
+        print(f"Correctness Evaluation Score: {correctnes_result.score}")
         print(f"Correctness Evaluation Feedback: {correctnes_result.feedback}")
     
-    # resp = query_engine.query("What applications do I need setup before my shift?")
-    # print(f"Response: {resp}")
-    # contexts = [node.node.get_content() for node in resp.source_nodes]
-
-    # evaluator = FaithfulnessEvaluator(llm=llm)
-    # eval_result = evaluator.evaluate(response=resp.response,contexts=contexts)
-    # print(f"Evaluation Result: {eval_result.score}")
-
+    
 
 if __name__ == "__main__":
     main()
