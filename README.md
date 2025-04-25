@@ -1,6 +1,6 @@
 # RAG using llama-index + VertexAI
 ## How to run
-- Add doc in data
+- Add you docs/pdfs in `data-files` directory
 - Add creds to `.env`
 - Run `uv run main.py`
 
