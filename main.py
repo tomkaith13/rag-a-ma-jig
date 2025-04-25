@@ -29,6 +29,8 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION)
 
 system_prompt = """
     Be concise and accurate. Answer the question as best as you can using the context provided.
+    Assume all questions are about on-call.
+    If they are totally unrelated, say 'This information is not available in the document'.
     If you don't know the answer, try to guide the user to the right answer. 
     If not confident,  say 'This information is not available in the document'.
     """
@@ -108,13 +110,15 @@ def main():
         contexts = [node.node.get_content() for node in resp.source_nodes]
 
         # Faithfulness ranges from 0 to 1, with higher scores indicating better consistency.
-        eval_result = faithfulness_evaluator.evaluate(
-            response=resp.response, contexts=contexts
-        )
+        # eval_result = faithfulness_evaluator.evaluate(
+        #     response=resp.response, contexts=contexts
+        # )
+        eval_result = faithfulness_evaluator.evaluate_response(response=resp,query=q)
         print(f"Faithfulness Evaluation Result Score: {eval_result.score}")
+        print(f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n")
 
-        relevance_result = relevance_evaluator.evaluate(
-            response=resp.response, query=q, contexts=contexts
+        relevance_result = relevance_evaluator.evaluate_response(
+            response=resp, query=q
         )
         print(f"Relevance Evaluation Result: {relevance_result.passing}")
         print(f"Relevance Evaluation Response: {relevance_result.response}")
@@ -128,8 +132,14 @@ def main():
         correctnes_result = correctnes_evaluator.evaluate(
             response=resp.response, query=q, contexts=contexts, answer=a
         )
+        print(f"Correctness Evaluation Passing: {correctnes_result.passing}")
         print(f"Correctness Evaluation Score: {correctnes_result.score}")
         print(f"Correctness Evaluation Feedback: {correctnes_result.feedback}")
+
+        correctnes_result = correctnes_evaluator.evaluate_response(response=resp, query=q)
+        print(f"Correctness Evaluation (Without GT) Passing: {correctnes_result.passing}")
+        print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
+        print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
 
 
 if __name__ == "__main__":
