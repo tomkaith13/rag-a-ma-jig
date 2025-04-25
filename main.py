@@ -17,6 +17,7 @@ from google.cloud import aiplatform
 import os
 from dotenv import load_dotenv
 from llama_index.core import Settings
+import gradio as gr
 
 
 load_dotenv()
@@ -50,11 +51,34 @@ embed_model = GoogleGenAIEmbedding(
     },
 )
 
+run_test_queries = False
+
 
 # Example usage of the embedding model
 def generate_embedding(text):
     """Generate embedding for the given text using Vertex AI."""
     return embed_model.get_text_embedding(text)
+
+def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
+    """Run a query using the provided query executor."""
+    def curried_query(query):
+        response = query_engine.query(query)
+
+        eval_result = faithfulness_evaluator.evaluate_response(response=response,query=query)
+        # resp += f"Faithfulness Evaluation Result Score: {eval_result.score}\n"
+        # resp += f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n"
+        out = f"Response: {response.response}\n"
+        out = f"faithfulness Evaluation Result Score: {eval_result.score}\n faithfulness Evaluation Result Passing: {eval_result.passing}\n"
+
+        # eval_result = relevancy_evaluator.evaluate_response(
+        #     response=response, query=query
+        # )
+        # out += f"Relevance Evaluation Result: {eval_result.passing}\n"
+        # out += f"Relevance Evaluation Response: {eval_result.response}\n"
+        out = out + "TADA!!\n"
+
+        return out
+    return curried_query
 
 
 # Example usage in the main function
@@ -98,48 +122,56 @@ def main():
     faithfulness_evaluator = FaithfulnessEvaluator(llm=eval_llm)
     relevance_evaluator = RelevancyEvaluator(llm=eval_llm)
     correctnes_evaluator = CorrectnessEvaluator(llm=eval_llm)
+    if run_test_queries:
+        for query in queries:
+            q = query["question"]
+            a = query["answer"]
 
-    for query in queries:
-        q = query["question"]
-        a = query["answer"]
+            print("*" * 50 + "\n")
+            print(f"Query: {q}")
+            resp = query_engine.query(q)
+            print(f"Response: {resp}")
+            contexts = [node.node.get_content() for node in resp.source_nodes]
 
-        print("*" * 50 + "\n")
-        print(f"Query: {q}")
-        resp = query_engine.query(q)
-        print(f"Response: {resp}")
-        contexts = [node.node.get_content() for node in resp.source_nodes]
+            # Faithfulness ranges from 0 to 1, with higher scores indicating better consistency.
+            # eval_result = faithfulness_evaluator.evaluate(
+            #     response=resp.response, contexts=contexts
+            # )
+            eval_result = faithfulness_evaluator.evaluate_response(response=resp,query=q)
+            print(f"Faithfulness Evaluation Result Score: {eval_result.score}")
+            print(f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n")
 
-        # Faithfulness ranges from 0 to 1, with higher scores indicating better consistency.
-        # eval_result = faithfulness_evaluator.evaluate(
-        #     response=resp.response, contexts=contexts
-        # )
-        eval_result = faithfulness_evaluator.evaluate_response(response=resp,query=q)
-        print(f"Faithfulness Evaluation Result Score: {eval_result.score}")
-        print(f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n")
+            relevance_result = relevance_evaluator.evaluate_response(
+                response=resp, query=q
+            )
+            print(f"Relevance Evaluation Result: {relevance_result.passing}")
+            print(f"Relevance Evaluation Response: {relevance_result.response}")
 
-        relevance_result = relevance_evaluator.evaluate_response(
-            response=resp, query=q
-        )
-        print(f"Relevance Evaluation Result: {relevance_result.passing}")
-        print(f"Relevance Evaluation Response: {relevance_result.response}")
+            # The LlamaIndex CorrectnessEvaluator outputs a score between 1 and 5, where 1 is the worst and 5 is the best. The evaluator assesses the relevance and correctness of a generated answer against a reference answer.
+            # Here's a more detailed breakdown of the scoring range:
+            # 1: The generated answer is not relevant to the user query.
+            # 2-3: The generated answer is relevant but contains mistakes.
+            # 4-5: The generated answer is relevant and fully correct.
 
-        # The LlamaIndex CorrectnessEvaluator outputs a score between 1 and 5, where 1 is the worst and 5 is the best. The evaluator assesses the relevance and correctness of a generated answer against a reference answer.
-        # Here's a more detailed breakdown of the scoring range:
-        # 1: The generated answer is not relevant to the user query.
-        # 2-3: The generated answer is relevant but contains mistakes.
-        # 4-5: The generated answer is relevant and fully correct.
+            correctnes_result = correctnes_evaluator.evaluate(
+                response=resp.response, query=q, contexts=contexts, answer=a
+            )
+            print(f"Correctness Evaluation Passing: {correctnes_result.passing}")
+            print(f"Correctness Evaluation Score: {correctnes_result.score}")
+            print(f"Correctness Evaluation Feedback: {correctnes_result.feedback}")
 
-        correctnes_result = correctnes_evaluator.evaluate(
-            response=resp.response, query=q, contexts=contexts, answer=a
-        )
-        print(f"Correctness Evaluation Passing: {correctnes_result.passing}")
-        print(f"Correctness Evaluation Score: {correctnes_result.score}")
-        print(f"Correctness Evaluation Feedback: {correctnes_result.feedback}")
-
-        correctnes_result = correctnes_evaluator.evaluate_response(response=resp, query=q)
-        print(f"Correctness Evaluation (Without GT) Passing: {correctnes_result.passing}")
-        print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
-        print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
+            correctnes_result = correctnes_evaluator.evaluate_response(response=resp, query=q)
+            print(f"Correctness Evaluation (Without GT) Passing: {correctnes_result.passing}")
+            print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
+            print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
+    
+    demo = gr.Interface(
+        fn=run_query(query_engine, faithfulness_evaluator, relevancy_evaluator=relevance_evaluator, correctness_evaluator=correctnes_evaluator),
+        inputs=[gr.Textbox(label="Enter Question")],
+        outputs=gr.Textbox(label="Response"),
+        title="Get Answer from RAG",
+    )
+    demo.launch()
 
 
 if __name__ == "__main__":

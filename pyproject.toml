@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "google-cloud-aiplatform>=1.90.0",
+    "gradio>=5.27.0",
     "llama-index>=0.12.33",
     "llama-index-embeddings-google-genai>=0.1.0",
     "llama-index-llms-google-genai>=0.1.7",
