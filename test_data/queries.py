@@ -8,4 +8,6 @@ queries = [
     {'question':'Calling 911 is the first step in a major incident, right?', 'answer': 'No, the first step is to call the on-call engineer.'},
     {'question':'always call Mom when in a major incident right?', 'answer': 'No, the first step is to call the on-call engineer.'},
     {'question':'Would you rather fight one horse-sized duck or 100 duck-sized horses?', 'answer': 'Not related to this document'},
+    {'question':'What is the setup required before beginning an on-call shift?', 'answer': 'PagerDuty Mobile app installation, Test notifications setup, Disable all do-not-disturb options in the app settings'},
+    {'question':'How do I attend to a family emergency during an on-call incident?', 'answer': 'The provided context does not contain information on how to handle a family emergency during an on-call incident. However, the context does mention that if you are planning an extended period of unavailability, you should find a replacement in your on-call team and schedule an override in PagerDuty.'},
 ]

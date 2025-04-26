@@ -5,6 +5,7 @@ from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core import StorageContext
 from llama_index.vector_stores.docarray import DocArrayInMemoryVectorStore
+from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.evaluation import (
     FaithfulnessEvaluator,
     RelevancyEvaluator,
@@ -32,9 +33,7 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION)
 system_prompt = """
     Be concise and accurate. Answer the question as best as you can using the context provided.
     Assume all questions are about on-call.
-    If they are totally unrelated, say 'This information is not available in the document'.
     If you don't know the answer, try to guide the user to the right answer. 
-    If not confident,  say 'This information is not available in the document'.
     """
 llm = Vertex(
     model="gemini-2.0-flash-lite",
@@ -115,7 +114,10 @@ def main():
     #     print(f"Text: {doc.text}")
     #     print(f"Metadata: {doc.metadata}")
     Settings.llm = llm
+    Settings.context_window = 20000 
     Settings.embed_model = embed_model  # Critical to prevent OpenAI fallback
+    sentenceSplitter = SentenceSplitter(chunk_size=256, chunk_overlap=20)
+    Settings.text_splitter = sentenceSplitter
 
     vector_store = DocArrayInMemoryVectorStore()
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
@@ -125,6 +127,7 @@ def main():
         embedding=embed_model,
         vector_store=vector_store,
         storage_context=storage_context,
+        transformations=[sentenceSplitter],
         show_progress=True,
     )
 
