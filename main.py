@@ -3,9 +3,11 @@ from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 # Tried using this import but it doesn't work
 # from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
-from llama_index.core import StorageContext
+from llama_index.core import StorageContext, get_response_synthesizer
 from llama_index.vector_stores.docarray import DocArrayInMemoryVectorStore
 from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.evaluation import (
     FaithfulnessEvaluator,
     RelevancyEvaluator,
@@ -17,6 +19,7 @@ import vertexai
 from google.cloud import aiplatform
 import os
 from dotenv import load_dotenv
+from functools import lru_cache
 from llama_index.core import Settings
 import nest_asyncio
 import gradio as gr
@@ -59,38 +62,35 @@ def generate_embedding(text):
     """Generate embedding for the given text using Vertex AI."""
     return embed_model.get_text_embedding(text)
 
+
 def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator, correctness_evaluator):
     """Run a query using the provided query executor."""
+
     async def curried_query(query):
+       
         response = await query_engine.aquery(query)
 
         eval_result = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
         # resp += f"Faithfulness Evaluation Result Score: {eval_result.score}\n"
         # resp += f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n"
-        out = f"Response: {response.response}\n"
-        out += "-" * 50 + "\n"
-        out += f'Faithfulness: Evaluates if the answer is faithful to the retrieved contexts (in other words, whether if there is a hallucination).\n'
-        out += f"faithfulness Evaluation Result Score: {eval_result.score}\nfaithfulness Evaluation Result Passing: {eval_result.passing}\n\n"
+
+        
+        faith_out = f"faithfulness Evaluation Result Score: {eval_result.score}\nfaithfulness Evaluation Result Passing: {eval_result.passing}\n\n"
 
         eval_result = await relevancy_evaluator.aevaluate_response(
             response=response, query=query
         )
-        out += "-" * 50 + "\n"
-        out += f'Relevance: Does the generated response directly address the users query?\n'
-        out += f"Relevance Evaluation Result: {eval_result.passing}\n"
-        out += f"Relevance Evaluation Response: {eval_result.response}\n\n"
+        
+        rel_out = f"Relevance Evaluation Result: {eval_result.passing}\n"
+        rel_out += f"Relevance Evaluation Response: {eval_result.response}\n\n"
 
         correctnes_result = await correctness_evaluator.aevaluate_response(response=response, query=query)
-        out += "-" * 50 + "\n"
-        out += f'Correctness: takes a query, the source documents (the context provided to the LLM), and the generated response as input. It then assesses whether the information presented in the response is accurate and supported by the source documents. \n'
-        out += f"Correctness Evaluation Passing: {correctnes_result.passing}\n"
-        out += f"Correctness Evaluation Result Score: {correctnes_result.score}\n"
-        out += f"Correctness Evaluation Result Feedback: {correctnes_result.feedback}\n\n"
+        
+        correctness_out = f"Correctness Evaluation Passing: {correctnes_result.passing}\n"
+        correctness_out += f"Correctness Evaluation Result Score: {correctnes_result.score}\n"
+        correctness_out += f"Correctness Evaluation Result Feedback: {correctnes_result.feedback}\n\n"
 
-        out += "-" * 50 + "\n"
-        out = out + "FIN!!\n"
-
-        return out
+        return response, faith_out, rel_out, correctness_out
     return curried_query
 
 
@@ -131,14 +131,20 @@ def main():
         show_progress=True,
     )
 
-    query_engine = index.as_query_engine(
-        llm=llm,
-        similarity_top_k=3,  # Retrieve top 3 relevant chunks
-    )
+    retriever = VectorIndexRetriever(index=index, similarity_top_k=5)
+    response_synthesizer = get_response_synthesizer()
+
+    query_engine = RetrieverQueryEngine(
+        retriever=retriever,
+        response_synthesizer=response_synthesizer,
+        )
 
     faithfulness_evaluator = FaithfulnessEvaluator(llm=eval_llm)
     relevance_evaluator = RelevancyEvaluator(llm=eval_llm)
     correctnes_evaluator = CorrectnessEvaluator(llm=eval_llm)
+
+    resp = query_engine.query("Give me a summary of the document?")
+    print(f"Response: {resp}")
 
     if run_test_queries:
         for query in queries:
@@ -190,8 +196,12 @@ def main():
         fn=run_query(query_engine, faithfulness_evaluator=faithfulness_evaluator,
                      relevancy_evaluator=relevance_evaluator, correctness_evaluator=correctnes_evaluator),
         inputs=[gr.Textbox(label="Enter Question")],
-        outputs=gr.Textbox(label="Response"),
-        title="Get Answer from RAG",
+        outputs=[gr.Textbox(label="Response"),
+                 gr.Textbox(label="Faithfulness: Evaluates if the answer is faithful to the retrieved contexts (in other words, whether if there is a hallucination)."),
+                 gr.Textbox(label="Relevance: Does the generated response directly address the users query?"),
+                 gr.Textbox(label="Correctness: takes a query, the source documents (the context provided to the LLM), and the generated response as input. It then assesses whether the information presented in the response is accurate and supported by the source documents.")],
+        title="DocuGauge: LlamaIndex RAG Evaluation",
+        description="This is a metrics driven document analysis that uses LlamaIndex RAG+evaluation using Google Gemini and Vertex AI. The model is used to answer questions based on the provided context (uploaded as unstructured PDF docs in `data-files` directory) and returns the evaluation metrics include Faithfulness, Relevance, and Correctness. \n This gives you an idea whether the documentation is lacking",
     )
     demo.launch()
 

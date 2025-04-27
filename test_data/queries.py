@@ -1,5 +1,5 @@
 queries = [
-    {'question': 'Give me the list of applications that I need to setup before my shift.', 'answer': 'PagerDuty, Slack'},
+    {'question': 'What  are the list of applications I need to setup before my on-call shift?', 'answer': 'PagerDuty, Slack'},
     {'question': 'What applications do I need to setup before my shift?', 'answer': 'PagerDuty, Slack'},
     {'question':'How do I check my shift schedule?', 'answer': 'View the schedule in PagerDuty.'},
     {'question':'How do I check my schedule?', 'answer': 'View the schedule in PagerDuty.'},
