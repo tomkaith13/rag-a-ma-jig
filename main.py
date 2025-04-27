@@ -44,7 +44,7 @@ eval_llm = Vertex(model="gemini-2.0-flash-lite", temperature=0)
 
 embed_model = GoogleGenAIEmbedding(
     model_name="text-embedding-004",
-    embed_batch_size=100,
+    # embed_batch_size=10,
     vertexai_config={
         "project": PROJECT_ID,
         "location": LOCATION,
