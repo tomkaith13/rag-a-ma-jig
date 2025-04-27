@@ -193,8 +193,10 @@ def main():
     nest_asyncio.apply()
 
     demo = gr.Interface(
-        fn=run_query(query_engine, faithfulness_evaluator=faithfulness_evaluator,
-                     relevancy_evaluator=relevance_evaluator, correctness_evaluator=correctnes_evaluator),
+        fn=run_query(query_engine,
+                     faithfulness_evaluator=faithfulness_evaluator,
+                     relevancy_evaluator=relevance_evaluator,
+                     correctness_evaluator=correctnes_evaluator),
         inputs=[gr.Textbox(label="Enter Question")],
         outputs=[gr.Textbox(label="Response"),
                  gr.Textbox(label="Faithfulness: Evaluates if the answer is faithful to the retrieved contexts (in other words, whether if there is a hallucination)."),
