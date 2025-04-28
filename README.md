@@ -1,4 +1,8 @@
-# RAG using llama-index + VertexAI
+# DocuGauge: A document quality evaluator using LlamaIndex RAG using VertexAI+Gemini
+This POC creates a in-mem Vector DB to ingest and load documents provided to it and uses Similarity based
+retrievers to answer questions posed to the LLM about this document. 
+Each answer is then run against a Evaluation LLM that measures the response against the query and the context of the 
+retrieved contents to help identify if the document has missed content.
 ## How to run
 - Add you docs/pdfs in `data-files` directory
 - Add creds to `.env`
