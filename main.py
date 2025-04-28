@@ -44,13 +44,13 @@ llm = Vertex(
     system_prompt=system_prompt,
 )
 eval_llm = Vertex(
-    model="gemini-2.5-flash-preview-04-17",
+    model="gemini-2.0-flash",
     temperature=0,
-    system_prompt="""Evaluate the given response based on the provided query and context"""
+    # system_prompt="""Evaluate the given response based on the provided query and context"""
     )
 
 embed_model = GoogleGenAIEmbedding(
-    model_name="text-embedding-004",
+    model_name="text-embedding-005",
     # embed_batch_size=10,
     vertexai_config={
         "project": PROJECT_ID,
@@ -76,7 +76,8 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
 
         faith_res = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
         
-        faith_out = f"faithfulness Evaluation Result Score: {faith_res.score}\nfaithfulness Evaluation Result Passing: {faith_res.passing}\n\n"
+        faith_out = f"faithfulness Evaluation Result Score: {faith_res.score}\nfaithfulness Evaluation Result Passing: {faith_res.passing}\n"
+        # faith_out += f"faithfulness Evaluation Result: {faith_res.response}\n"
         # print(f'Faithfulness Result: {faith_out}')
 
         rel_res = await relevancy_evaluator.aevaluate_response(
@@ -85,15 +86,11 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
         
         rel_out = f"Relevance Evaluation Result: {rel_res.passing}\n"
         rel_out += f"Relevance Evaluation Result Score: {rel_res.score}\n"
-        rel_out += f"Relevance Evaluation Response: {rel_res.response}\n"
+        # rel_out += f"Relevance Evaluation Response: {rel_res.response}\n"
         # print(f'Relevance Result: {rel_out}')
 
 
         c_score = ((0.8 * float(faith_res.score)) + (0.2 * float(rel_res.score))) * 100
-        print(f"Faithfulness Score: {faith_res.score}")
-        print(f"Relevance Score: {rel_res.score}")
-        print(f"Combined Metric: {c_score}")
-        
 
         return response, faith_out, rel_out, f'{c_score}'
     return curried_query
