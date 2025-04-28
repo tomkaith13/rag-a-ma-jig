@@ -92,7 +92,7 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
         # the metric calculation is done with faithfulness and relevance scores
         # faithfulness ranges from 0 to 1, with higher scores indicating better consistency.
         # relevance ranges from 0 to 1, with higher scores indicating better relevance.
-        # The final score is a weighted average of the two scores, with faithfulness given a weight of 0.8 and relevance given a weight of 0.2.
+        # The final score is a weighted sum of the two scores, with faithfulness given a weight of 0.8 and relevance given a weight of 0.2.
         # The final score is a percentage, so we multiply by 100.
         c_score = ((0.8 * float(faith_res.score)) + (0.2 * float(rel_res.score))) * 100
 
