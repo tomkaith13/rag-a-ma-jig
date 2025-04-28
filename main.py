@@ -40,10 +40,14 @@ system_prompt = """
     """
 llm = Vertex(
     model="gemini-2.0-flash-lite",
-    temperature=0.79,
+    temperature=0.6,
     system_prompt=system_prompt,
 )
-eval_llm = Vertex(model="gemini-2.0-flash-lite", temperature=0)
+eval_llm = Vertex(
+    model="gemini-2.5-flash-preview-04-17",
+    temperature=0,
+    system_prompt="""Evaluate the given response based on the provided query and context"""
+    )
 
 embed_model = GoogleGenAIEmbedding(
     model_name="text-embedding-004",
@@ -63,34 +67,35 @@ def generate_embedding(text):
     return embed_model.get_text_embedding(text)
 
 
-def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator, correctness_evaluator):
+def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
     """Run a query using the provided query executor."""
 
     async def curried_query(query):
        
         response = await query_engine.aquery(query)
 
-        eval_result = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
-        # resp += f"Faithfulness Evaluation Result Score: {eval_result.score}\n"
-        # resp += f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n"
-
+        faith_res = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
         
-        faith_out = f"faithfulness Evaluation Result Score: {eval_result.score}\nfaithfulness Evaluation Result Passing: {eval_result.passing}\n\n"
+        faith_out = f"faithfulness Evaluation Result Score: {faith_res.score}\nfaithfulness Evaluation Result Passing: {faith_res.passing}\n\n"
+        # print(f'Faithfulness Result: {faith_out}')
 
-        eval_result = await relevancy_evaluator.aevaluate_response(
+        rel_res = await relevancy_evaluator.aevaluate_response(
             response=response, query=query
         )
         
-        rel_out = f"Relevance Evaluation Result: {eval_result.passing}\n"
-        rel_out += f"Relevance Evaluation Response: {eval_result.response}\n\n"
+        rel_out = f"Relevance Evaluation Result: {rel_res.passing}\n"
+        rel_out += f"Relevance Evaluation Result Score: {rel_res.score}\n"
+        rel_out += f"Relevance Evaluation Response: {rel_res.response}\n"
+        # print(f'Relevance Result: {rel_out}')
 
-        correctnes_result = await correctness_evaluator.aevaluate_response(response=response, query=query)
+
+        c_score = ((0.8 * float(faith_res.score)) + (0.2 * float(rel_res.score))) * 100
+        print(f"Faithfulness Score: {faith_res.score}")
+        print(f"Relevance Score: {rel_res.score}")
+        print(f"Combined Metric: {c_score}")
         
-        correctness_out = f"Correctness Evaluation Passing: {correctnes_result.passing}\n"
-        correctness_out += f"Correctness Evaluation Result Score: {correctnes_result.score}\n"
-        correctness_out += f"Correctness Evaluation Result Feedback: {correctnes_result.feedback}\n\n"
 
-        return response, faith_out, rel_out, correctness_out
+        return response, faith_out, rel_out, f'{c_score}'
     return curried_query
 
 
@@ -195,15 +200,15 @@ def main():
     demo = gr.Interface(
         fn=run_query(query_engine,
                      faithfulness_evaluator=faithfulness_evaluator,
-                     relevancy_evaluator=relevance_evaluator,
-                     correctness_evaluator=correctnes_evaluator),
+                     relevancy_evaluator=relevance_evaluator),
         inputs=[gr.Textbox(label="Enter Question")],
         outputs=[gr.Textbox(label="Response"),
                  gr.Textbox(label="Faithfulness: Evaluates if the answer is faithful to the retrieved contexts (in other words, whether if there is a hallucination)."),
                  gr.Textbox(label="Relevance: Does the generated response directly address the users query?"),
-                 gr.Textbox(label="Correctness: takes a query, the source documents (the context provided to the LLM), and the generated response as input. It then assesses whether the information presented in the response is accurate and supported by the source documents.")],
+                 gr.Textbox(label="Document Quality Score (in percentage):")],
         title="DocuGauge: LlamaIndex RAG Evaluation",
-        description="This is a metrics driven document analysis that uses LlamaIndex RAG+evaluation using Google Gemini and Vertex AI. The model is used to answer questions based on the provided context (uploaded as unstructured PDF docs in `data-files` directory) and returns the evaluation metrics include Faithfulness, Relevance, and Correctness. \n This gives you an idea whether the documentation is lacking",
+        description="This is a metrics driven document analysis that uses LlamaIndex RAG+evaluation using Google Gemini and Vertex AI. The model is used to answer questions based on the provided context (uploaded as unstructured PDF docs in `data-files` directory) and returns the evaluation metrics include Faithfulness, Relevance etc. \n This gives you an idea whether the documentation is lacking enough information to answer a question or if the model is hallucinating. \n\n\n"
+        ,
     )
     demo.launch()
 
