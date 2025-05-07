@@ -18,4 +18,5 @@ retrieved contents to help identify if the document has missed content.
 
 ## Todo
 - build a FAQ generator
+- Add an upload file UI to Gradio
 - Add persistence layer to the in-mem vector DB
