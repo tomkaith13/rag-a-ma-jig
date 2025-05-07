@@ -66,13 +66,20 @@ def generate_embedding(text):
     """Generate embedding for the given text using Vertex AI."""
     return embed_model.get_text_embedding(text)
 
+@lru_cache(maxsize=128)
+def execute_query(query_engine, query):
+    """Execute a query using the provided query executor."""
+    # Assuming you have a query engine set up
+    print(f"Executing query: {query}")
+    response = query_engine.query(query)
+    return response
+
 
 def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
     """Run a query using the provided query executor."""
 
     async def curried_query(query):
-       
-        response = await query_engine.aquery(query)
+        response = execute_query(query_engine, query)
 
         faith_res = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
         
