@@ -34,8 +34,8 @@ vertexai.init(project=PROJECT_ID, location=LOCATION)
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
 
 system_prompt = """
-    Be concise and accurate. Answer the question as best as you can using the context provided.
-    Assume all questions are about on-call.
+    Answer the question as best as you can using the context provided.
+    Provide a detailed answer and include relevant information from the context.
     If you don't know the answer, try to guide the user to the right answer. 
     """
 llm = Vertex(
