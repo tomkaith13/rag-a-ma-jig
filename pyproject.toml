@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "fastapi[standard]>=0.115.12",
     "google-cloud-aiplatform>=1.90.0",
     "gradio>=5.27.0",
     "llama-index>=0.12.33",

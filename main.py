@@ -22,7 +22,9 @@ from dotenv import load_dotenv
 from functools import lru_cache
 from llama_index.core import Settings
 import nest_asyncio
-import gradio as gr
+from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 
 load_dotenv()
@@ -32,6 +34,11 @@ print(f"PROJECT_ID: {PROJECT_ID}")
 print(f"LOCATION: {LOCATION}")
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 aiplatform.init(project=PROJECT_ID, location=LOCATION)
+
+app = FastAPI(title="QA Service",
+              version="1.0.0",
+            )
+
 
 system_prompt = """
     Answer the question as best as you can using the context provided.
@@ -72,6 +79,7 @@ def execute_query(query_engine, query):
     # Assuming you have a query engine set up
     print(f"Executing query: {query}")
     response = query_engine.query(query)
+    print(f"Response: {response}")
     return response
 
 
@@ -83,7 +91,7 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
 
         faith_res = await faithfulness_evaluator.aevaluate_response(response=response,query=query)
         
-        faith_out = f"faithfulness Evaluation Result Score: {faith_res.score}\nfaithfulness Evaluation Result Passing: {faith_res.passing}\n"
+        # faith_out = f"faithfulness Evaluation Result Score: {faith_res.score}\nfaithfulness Evaluation Result Passing: {faith_res.passing}\n"
         # faith_out += f"faithfulness Evaluation Result: {faith_res.response}\n"
         # print(f'Faithfulness Result: {faith_out}')
 
@@ -91,8 +99,8 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
             response=response, query=query
         )
         
-        rel_out = f"Relevance Evaluation Result: {rel_res.passing}\n"
-        rel_out += f"Relevance Evaluation Result Score: {rel_res.score}\n"
+        # rel_out = f"Relevance Evaluation Result: {rel_res.passing}\n"
+        # rel_out += f"Relevance Evaluation Result Score: {rel_res.score}\n"
         # rel_out += f"Relevance Evaluation Response: {rel_res.response}\n"
         # print(f'Relevance Result: {rel_out}')
 
@@ -103,123 +111,139 @@ def run_query(query_engine, faithfulness_evaluator, relevancy_evaluator):
         # The final score is a percentage, so we multiply by 100.
         c_score = ((0.8 * float(faith_res.score)) + (0.2 * float(rel_res.score))) * 100
 
-        return response, faith_out, rel_out, f'{c_score}'
+        # return response, faith_out, rel_out, f'{c_score}'
+        return response, f'{c_score}'
     return curried_query
 
 
 # Example usage in the main function
-def main():
-    print("Hello from llamaindex-rag!")
-    # resp = llm.complete("What is the capital of France?")
-    # print(resp)
 
-    # Generate embedding for a sample text
-    # sample_text = "Paris is the capital of France."
+print("Hello from llamaindex-rag!")
+# resp = llm.complete("What is the capital of France?")
+# print(resp)
 
-    # embeddings = generate_embedding("Google Gemini Embeddings.")
-    # print(embeddings[:5])
-    # print(f"Dimension of embeddings: {len(embeddings)}")
+# Generate embedding for a sample text
+# sample_text = "Paris is the capital of France."
 
-    docs = SimpleDirectoryReader("./data-files").load_data()
-    print(f"Number of documents loaded: {len(docs)}")
-    # for doc in docs:
-    #     print(f"Document: {doc}")
-    #     print(f"Text: {doc.text}")
-    #     print(f"Metadata: {doc.metadata}")
-    Settings.llm = llm
-    Settings.context_window = 20000 
-    Settings.embed_model = embed_model  # Critical to prevent OpenAI fallback
-    sentenceSplitter = SentenceSplitter(chunk_size=256, chunk_overlap=20)
-    Settings.text_splitter = sentenceSplitter
+# embeddings = generate_embedding("Google Gemini Embeddings.")
+# print(embeddings[:5])
+# print(f"Dimension of embeddings: {len(embeddings)}")
 
-    vector_store = DocArrayInMemoryVectorStore()
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
+docs = SimpleDirectoryReader("./data-files").load_data()
+print(f"Number of documents loaded: {len(docs)}")
+# for doc in docs:
+#     print(f"Document: {doc}")
+#     print(f"Text: {doc.text}")
+#     print(f"Metadata: {doc.metadata}")
+Settings.llm = llm
+Settings.context_window = 20000 
+Settings.embed_model = embed_model  # Critical to prevent OpenAI fallback
+sentenceSplitter = SentenceSplitter(chunk_size=256, chunk_overlap=20)
+Settings.text_splitter = sentenceSplitter
 
-    index = VectorStoreIndex.from_documents(
-        docs,
-        embedding=embed_model,
-        vector_store=vector_store,
-        storage_context=storage_context,
-        transformations=[sentenceSplitter],
-        show_progress=True,
+vector_store = DocArrayInMemoryVectorStore()
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+index = VectorStoreIndex.from_documents(
+    docs,
+    embedding=embed_model,
+    vector_store=vector_store,
+    storage_context=storage_context,
+    transformations=[sentenceSplitter],
+    show_progress=True,
+)
+
+retriever = VectorIndexRetriever(index=index, similarity_top_k=5)
+response_synthesizer = get_response_synthesizer()
+
+query_engine = RetrieverQueryEngine(
+    retriever=retriever,
+    response_synthesizer=response_synthesizer,
     )
 
-    retriever = VectorIndexRetriever(index=index, similarity_top_k=5)
-    response_synthesizer = get_response_synthesizer()
+faithfulness_evaluator = FaithfulnessEvaluator(llm=eval_llm)
+relevance_evaluator = RelevancyEvaluator(llm=eval_llm)
+correctnes_evaluator = CorrectnessEvaluator(llm=eval_llm)
 
-    query_engine = RetrieverQueryEngine(
-        retriever=retriever,
-        response_synthesizer=response_synthesizer,
+resp = query_engine.query("Give me a summary of the document?")
+print(f"Response: {resp}")
+
+if run_test_queries:
+    for query in queries:
+        q = query["question"]
+        a = query["answer"]
+
+        print("*" * 50 + "\n")
+        print(f"Query: {q}")
+        resp = query_engine.query(q)
+        print(f"Response: {resp}")
+        contexts = [node.node.get_content() for node in resp.source_nodes]
+
+        # Faithfulness ranges from 0 to 1, with higher scores indicating better consistency.
+        # eval_result = faithfulness_evaluator.evaluate(
+        #     response=resp.response, contexts=contexts
+        # )
+        eval_result = faithfulness_evaluator.evaluate_response(response=resp,query=q)
+        print(f"Faithfulness Evaluation Result Score: {eval_result.score}")
+        print(f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n")
+
+        relevance_result = relevance_evaluator.evaluate_response(
+            response=resp, query=q
         )
+        print(f"Relevance Evaluation Result: {relevance_result.passing}")
+        print(f"Relevance Evaluation Response: {relevance_result.response}")
 
-    faithfulness_evaluator = FaithfulnessEvaluator(llm=eval_llm)
-    relevance_evaluator = RelevancyEvaluator(llm=eval_llm)
-    correctnes_evaluator = CorrectnessEvaluator(llm=eval_llm)
+        # The LlamaIndex CorrectnessEvaluator outputs a score between 1 and 5, where 1 is the worst and 5 is the best. The evaluator assesses the relevance and correctness of a generated answer against a reference answer.
+        # Here's a more detailed breakdown of the scoring range:
+        # 1: The generated answer is not relevant to the user query.
+        # 2-3: The generated answer is relevant but contains mistakes.
+        # 4-5: The generated answer is relevant and fully correct.
 
-    resp = query_engine.query("Give me a summary of the document?")
+        correctnes_result = correctnes_evaluator.evaluate(
+            response=resp.response, query=q, contexts=contexts, answer=a
+        )
+        print(f"Correctness Evaluation Passing: {correctnes_result.passing}")
+        print(f"Correctness Evaluation Score: {correctnes_result.score}")
+        print(f"Correctness Evaluation Feedback: {correctnes_result.feedback}")
+
+        correctnes_result = correctnes_evaluator.evaluate_response(response=resp, query=q)
+        print(f"Correctness Evaluation (Without GT) Passing: {correctnes_result.passing}")
+        print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
+        print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
+
+# we need to apply nest_asyncio to avoid the error "RuntimeError: This event loop is already running"
+# nest_asyncio.apply()
+engine = run_query(
+    query_engine=query_engine,
+    faithfulness_evaluator=faithfulness_evaluator,
+    relevancy_evaluator=relevance_evaluator,
+)
+
+@app.get("/hello")
+def hello():
+    return JSONResponse(
+        content={"message": "Hello from llamaindex-rag!"},
+        status_code=status.HTTP_200_OK,
+    )
+class Query_Request_Body(BaseModel):
+    query: str = Field(title="Question from the user")
+
+@app.post("/ask_question")
+async def question_answer_handler(body: Query_Request_Body):
+    """Endpoint to handle queries."""
+    # Assuming you have a query engine set up
+    query = body.query
+    print(f"Received query: {query}")
+    print("Received a query!")
+    resp, combined_score = await engine(query)
     print(f"Response: {resp}")
 
-    if run_test_queries:
-        for query in queries:
-            q = query["question"]
-            a = query["answer"]
-
-            print("*" * 50 + "\n")
-            print(f"Query: {q}")
-            resp = query_engine.query(q)
-            print(f"Response: {resp}")
-            contexts = [node.node.get_content() for node in resp.source_nodes]
-
-            # Faithfulness ranges from 0 to 1, with higher scores indicating better consistency.
-            # eval_result = faithfulness_evaluator.evaluate(
-            #     response=resp.response, contexts=contexts
-            # )
-            eval_result = faithfulness_evaluator.evaluate_response(response=resp,query=q)
-            print(f"Faithfulness Evaluation Result Score: {eval_result.score}")
-            print(f"Faithfulness Evaluation Result Passing: {eval_result.passing}\n")
-
-            relevance_result = relevance_evaluator.evaluate_response(
-                response=resp, query=q
-            )
-            print(f"Relevance Evaluation Result: {relevance_result.passing}")
-            print(f"Relevance Evaluation Response: {relevance_result.response}")
-
-            # The LlamaIndex CorrectnessEvaluator outputs a score between 1 and 5, where 1 is the worst and 5 is the best. The evaluator assesses the relevance and correctness of a generated answer against a reference answer.
-            # Here's a more detailed breakdown of the scoring range:
-            # 1: The generated answer is not relevant to the user query.
-            # 2-3: The generated answer is relevant but contains mistakes.
-            # 4-5: The generated answer is relevant and fully correct.
-
-            correctnes_result = correctnes_evaluator.evaluate(
-                response=resp.response, query=q, contexts=contexts, answer=a
-            )
-            print(f"Correctness Evaluation Passing: {correctnes_result.passing}")
-            print(f"Correctness Evaluation Score: {correctnes_result.score}")
-            print(f"Correctness Evaluation Feedback: {correctnes_result.feedback}")
-
-            correctnes_result = correctnes_evaluator.evaluate_response(response=resp, query=q)
-            print(f"Correctness Evaluation (Without GT) Passing: {correctnes_result.passing}")
-            print(f"Correctness Evaluation (Without GT) Result Score: {correctnes_result.score}")
-            print(f"Correctness Evaluation (Without GT) Result Feedback: {correctnes_result.feedback}")
-    
-    # we need to apply nest_asyncio to avoid the error "RuntimeError: This event loop is already running"
-    nest_asyncio.apply()
-
-    demo = gr.Interface(
-        fn=run_query(query_engine,
-                     faithfulness_evaluator=faithfulness_evaluator,
-                     relevancy_evaluator=relevance_evaluator),
-        inputs=[gr.Textbox(label="Enter Question")],
-        outputs=[gr.Textbox(label="Response"),
-                 gr.Textbox(label="Faithfulness: Evaluates if the answer is faithful to the retrieved contexts (in other words, whether if there is a hallucination)."),
-                 gr.Textbox(label="Relevance: Does the generated response directly address the users query?"),
-                 gr.Textbox(label="Document Quality Score (in percentage):")],
-        title="DocuGauge: LlamaIndex RAG Evaluation",
-        description="This is a metrics driven document analysis that uses LlamaIndex RAG+evaluation using Google Gemini and Vertex AI. The model is used to answer questions based on the provided context (uploaded as unstructured PDF docs in `data-files` directory) and returns the evaluation metrics include Faithfulness, Relevance etc. \n This gives you an idea whether the documentation is lacking enough information to answer a question or if the model is hallucinating. \n\n\n"
-        ,
+    return JSONResponse(
+        content={
+            "response": str(resp),
+            "combined_score": combined_score,
+        },
+        status_code=status.HTTP_200_OK,
     )
-    demo.launch()
-
-
-if __name__ == "__main__":
-    main()
+    
+   
