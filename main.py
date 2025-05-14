@@ -66,7 +66,7 @@ def generate_embedding(text):
     """Generate embedding for the given text using Vertex AI."""
     return embed_model.get_text_embedding(text)
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=1024)
 def execute_query(query_engine, query):
     """Execute a query using the provided query executor."""
     # Assuming you have a query engine set up
